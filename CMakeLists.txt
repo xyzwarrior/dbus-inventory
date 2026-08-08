@@ -81,3 +81,5 @@ target_include_directories(dbus-inventory PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${
 target_link_libraries(dbus-inventory PRIVATE sdbus-c++)
 target_compile_features(dbus-inventory PRIVATE cxx_std_17)
 target_compile_options(dbus-inventory PRIVATE -Wall)
+
+install(TARGETS dbus-inventory DESTINATION ${CMAKE_INSTALL_BINDIR})
