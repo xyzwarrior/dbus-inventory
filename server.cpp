@@ -516,15 +516,15 @@ int main(int argc, char* argv[])
             ;
 #endif
 
-             
-        
+// Test invokeMethod
+/*
         auto prettyName = manager.invokeMethod<
-            xyz::openbmc_project::Inventory::server::Item, 
+            xyz::openbmc_project::Inventory::server::Item,
             decltype(&xyz::openbmc_project::Inventory::server::Item::getPropertyByName)
         >("/system", "xyz.openbmc_project.Inventory.Item", &xyz::openbmc_project::Inventory::server::Item::getPropertyByName, "PrettyName");
 
         std::cout << "Test invokeMethod getPropertyByName(\"PrettyName\") for /system : " << std::get<std::string>(prettyName) << std::endl;
-
+*/
         std::cout << "Starting Event Loop...\n";
         connection->enterEventLoop();
 
