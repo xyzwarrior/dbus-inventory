@@ -11,7 +11,7 @@ if (NOT BUILD_YOCTO)
     include("cmake/dependencies.cmake")
     FetchContent_MakeAvailable(sdbus-c++)
 else ()
-    add_definition(-DPIM_PERSIST_PATH=/var/lib/phosphor-inventory-manager)
+    add_definitions(-DPIM_PERSIST_PATH="\\\"/var/lib/phosphor-inventory-manager\\\"")
 endif()
 
 project(dbus-inventory LANGUAGES CXX)
