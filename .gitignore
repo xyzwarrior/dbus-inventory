@@ -25,3 +25,4 @@ __pycache__
 *.pyo
 /tools/build
 /tools/setup.py
+/build/

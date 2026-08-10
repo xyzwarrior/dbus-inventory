@@ -52,7 +52,9 @@ struct SerialOps
         fs::create_directories(p.parent_path());
         std::ofstream os(p, std::ios::binary);
         cereal::JSONOutputArchive oarchive(os);
-        oarchive(object);
+        //oarchive(object);
+        // no unnamed toplevel object value0
+        object.save(oarchive);
     }
 
     static void deserialize(const std::string&, const std::string&)
@@ -81,7 +83,9 @@ struct SerialOps
                 //    std::cout << is.rdbuf() << std::endl; // Dumps entire file buffer to stdout
                 //}
                 cereal::JSONInputArchive iarchive(is);
-                iarchive(object);
+                //iarchive(object);
+                // no unnamed toplevel object value0
+                object.load(iarchive);
             }
         }
         catch (cereal::Exception& e)

@@ -4,6 +4,21 @@
 #include <sdbus-c++/sdbus-c++.h>
 #include <tuple>
 #include <variant>
+#include <cereal/types/map.hpp>
+#include <cereal/types/set.hpp>
+#include <cereal/types/string.hpp>
+#include <cereal/types/tuple.hpp>
+#include <cereal/types/vector.hpp>
+//#include <cereal/archives/json.hpp>
+
+// Emitting signals prior to claiming a well known DBus service name causes
+// un-necessary DBus traffic and wakeups.  De-serialization only happens prior
+// to claiming a well known name, so don't emit signals.
+#ifndef _SKIP_SIGNALS
+#define _SKIP_SIGNALS
+static constexpr auto skipSignals = true;
+#endif
+
 % for m in interface.methods + interface.properties + interface.signals:
 ${ m.cpp_prototype(loader, interface=interface, ptype='callback-hpp-includes') }
 % endfor
@@ -130,6 +145,42 @@ ${p.camelCase}(${p.cppTypeParam(interface.name)} value);
 
         static constexpr auto interface = "${interface.name}";
 
+        // save archive (must be const)
+        template<class Archive>
+        void save([[maybe_unused]] Archive& a) const
+        {
+        % for p in interface.properties:
+<% t = "cereal::make_nvp(\"" + p.CamelCase + "\", " + p.camelCase + "())"%>\
+            a(${t});
+        % endfor
+        }
+        // load archive (non-const)
+        template<class Archive>
+        void load(Archive& a)
+        {
+        % for p in interface.properties:
+<% t = p.camelCase + "()" %>\
+            decltype(${t}) ${p.CamelCase}{};
+        % endfor
+    
+        % for p in interface.properties:
+<% t = "cereal::make_nvp(\"" + p.CamelCase + "\", " + p.CamelCase + ")" %>\
+            try
+            {
+                a(${t});
+            }
+            catch (const cereal::Exception &e)
+            {
+                // Ignore any exceptions, property value stays default
+            }
+        % endfor
+    
+        % for p in interface.properties:
+<% t = p.camelCase + "(" + p.CamelCase + ", skipSignals)" %>\
+            ${t};
+        % endfor
+        }
+
     private:
         sdbus::IObject* _obj;
     % for m in interface.methods:
@@ -192,45 +243,64 @@ inline std::string convert_to_string<${cppNamespace()}::${e.name}>(
 } // namespace details
 } // namespace message
 
-#include <cereal/types/string.hpp>
-#include <cereal/types/tuple.hpp>
-#include <cereal/types/vector.hpp>
 #ifndef CLASS_VERSION
-#define CLASS_VERSION 1
+//#define CLASS_VERSION 1
+#define CLASS_VERSION 2
 #endif
 CEREAL_CLASS_VERSION(${'::'.join(namespaces)}::server::${classname}, CLASS_VERSION);
 
 namespace cereal
 {
+#ifndef _CLASS_VERSION_WITH_NVP
+#define _CLASS_VERSION_WITH_NVP
+// The version we started using cereal NVP from
+static constexpr size_t CLASS_VERSION_WITH_NVP = 2;
+#endif
 
 template<class Archive>
-void save(Archive& a,
-          const ${'::'.join(namespaces)}::server::${classname}& object,
-          const std::uint32_t version)
+void _save([[maybe_unused]] Archive& a,
+          [[maybe_unused]] const ${'::'.join(namespaces)}::server::${classname}& object,
+          const std::uint32_t /* version */)
 {
-<%
-    props = ["object." + p.camelCase + "()" for p in interface.properties]
-    props = ', '.join(props)
+% for p in interface.properties:
+<% t = "cereal::make_nvp(\"" + p.CamelCase + "\", object." + p.camelCase + "())"
 %>\
-    a(${props});
+    a(${t});
+% endfor    
 }
 
-
 template<class Archive>
-void load(Archive& a,
-          ${'::'.join(namespaces)}::server::${classname}& object,
+void _load(Archive& a,
+          [[maybe_unused]] ${'::'.join(namespaces)}::server::${classname}& object,
           const std::uint32_t version)
 {
 % for p in interface.properties:
 <% t = "object." + p.camelCase + "()" %>\
     decltype(${t}) ${p.CamelCase}{};
 % endfor
+    if (version < CLASS_VERSION_WITH_NVP)
+    {
 <%
     props = ', '.join([p.CamelCase for p in interface.properties])
 %>\
-    a(${props});
+        a(${props});
+    }
+    else
+    {
 % for p in interface.properties:
-<% t = "object." + p.camelCase + "(" + p.CamelCase + ")" %>\
+<% t = "cereal::make_nvp(\"" + p.CamelCase + "\", " + p.CamelCase + ")" %>\
+        try
+        {
+            a(${t});
+        }
+        catch (const Exception &e)
+        {
+            // Ignore any exceptions, property value stays default
+        }
+% endfor
+    }
+% for p in interface.properties:
+<% t = "object." + p.camelCase + "(" + p.CamelCase + ", skipSignals)" %>\
     ${t};
 % endfor
 }

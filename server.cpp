@@ -482,9 +482,9 @@ int main(int argc, char* argv[])
         */
         std::unique_ptr<sdbus::IConnection> connection;
         if (sessionBus)
-            connection = sdbus::createSessionBusConnection(sdbus::ServiceName{serviceName});
+            connection = sdbus::createSessionBusConnection();
         else
-            connection = sdbus::createSystemBusConnection(sdbus::ServiceName{serviceName});
+            connection = sdbus::createSystemBusConnection();
 
         //create inventory object
         const char *objPath = "/xyz/openbmc_project/inventory";
@@ -559,7 +559,8 @@ int main(int argc, char* argv[])
 */
 
         manager.run();
-
+        std::cout << "Requesting Name: " << serviceName << " ...\n";
+        connection->requestName(sdbus::ServiceName{serviceName});    
         std::cout << "Starting Event Loop...\n";
         connection->enterEventLoop();
 
