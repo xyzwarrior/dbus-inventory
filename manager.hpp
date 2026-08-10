@@ -118,7 +118,7 @@ private:
         auto& holder = getInterfaceHolder(path, interface);
         return *std::any_cast<T>(holder);
     }
-                                             
+
     /** @brief Add or update interfaces on DBus. */
     void updateInterfaces(const sdbus::ObjectPath& path,
                           const Object& interfaces,
@@ -132,4 +132,6 @@ private:
     sdbus::IConnection* _connection;
     std::map<std::string, std::unique_ptr<sdbus::IObject>> _objs;
     const char* _root = "/xyz/openbmc_project/inventory";
+    /** @brief Manager status indicator */
+    volatile enum class ManagerStatus { STARTING, RUNNING, STOPPING } _status;
 };

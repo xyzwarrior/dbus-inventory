@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 //#include <nlohmann/json.hpp>
+#include <CLI/CLI.hpp>
 
 // supported interfaces
 /*
@@ -110,9 +111,20 @@ void InterfaceError::log() const
     std::cout << "-- " << what() << " INTERFACE=" << interface << std::endl;
 }
 
-Manager::Manager(sdbus::IConnection* conn) : _connection(conn)
+Manager::Manager(sdbus::IConnection* conn) : _connection(conn),
+    _status(ManagerStatus::STARTING)
 {
 
+}
+
+void Manager::shutdown() noexcept
+{
+    _status = ManagerStatus::STOPPING;
+}
+
+void Manager::run() noexcept
+{
+    _status = ManagerStatus::RUNNING;
 }
 
 void Manager::destroyObjects(const std::vector<const char*>& paths)
@@ -165,9 +177,12 @@ void Manager::updateInterfaces(const sdbus::ObjectPath& path,
             {
                 // Add the new interface.
                 auto& ctor = std::get<MakeInterfaceType>(opsit->second);
+		// skipSignal = true here to avoid getting PropertiesChanged
+                // signals while the interface is constructed.  We'll emit an
+                // ObjectManager signal for this interface below.
                 refaceit = refaces.insert(
                     refaceit,
-                    std::make_pair(ifaceit->first, ctor(_objs[path].get(), ifaceit->second)));
+                    std::make_pair(ifaceit->first, ctor(_objs[path].get(), ifaceit->second, true)));
 
                 signals.push_back(sdbus::InterfaceName(ifaceit->first));
             }
@@ -175,7 +190,7 @@ void Manager::updateInterfaces(const sdbus::ObjectPath& path,
             {
                 // Set the new property values.
                 auto& assign = std::get<AssignInterfaceType>(opsit->second);
-                assign(ifaceit->second, refaceit->second);
+                assign(ifaceit->second, refaceit->second, _status != ManagerStatus::RUNNING);
             }
             if (!restoreFromCache)
             {
@@ -201,17 +216,19 @@ void Manager::updateInterfaces(const sdbus::ObjectPath& path,
 
         ++ifaceit;
     }
-
-    if (newObject)
+    if (_status == ManagerStatus::RUNNING)
     {
-        //_bus.emit_object_added(path.str.c_str());
-        _objs[path]->emitInterfacesAddedSignal();
+        if (newObject)
+        {
+            //_bus.emit_object_added(path.str.c_str());
+            _objs[path]->emitInterfacesAddedSignal();
 
-    }
-    else if (!signals.empty())
-    {
-        //_bus.emit_interfaces_added(path.str.c_str(), signals);
-        _objs[path]->emitInterfacesAddedSignal(signals);
+        }
+        else if (!signals.empty())
+        {
+            //_bus.emit_interfaces_added(path.str.c_str(), signals);
+            _objs[path]->emitInterfacesAddedSignal(signals);
+        }
     }
 }
 
@@ -401,14 +418,14 @@ void Manager::restore()
                     if (opsit->first == ifaceit->first) {
                         //std::cout << "   " << opsit->first << " " << typeid(opsit->second).name() << std::endl;
                         try {
-                            
+
                             auto& deserialize =
-                                std::get<DeserializeInterfaceType<SerialOps>>(                            
+                                std::get<DeserializeInterfaceType<SerialOps>>(
                                     opsit->second);
-                            
+
                             //std::cout << "      *** " << deserialize << std::endl;
                             //std::cout << "      --- " << typeid(deserialize).name() << std::endl;
-                            
+
                             //std::cout << "      deserialize: " << absPath << " " << ifaceit->first << std::endl;
                             deserialize(absPath, ifaceit->first, refaceit->second);
 
@@ -431,7 +448,7 @@ void Manager::restore()
             }
             ++objit;
         }
-#endif                
+#endif
     }
 }
 
@@ -442,12 +459,15 @@ void Manager::notify(std::map<sdbus::ObjectPath, Object> objs)
 
 int main(int argc, char* argv[])
 {
+    CLI::App app{"OpenBmc Inventory Manager"};
+    bool sessionBus = false;
     std::cout << "Starting Inventory Manager...\n";
-    try 
-    {    
-        //create Dbus connection to the system bus
+    app.add_flag("-s,--session", sessionBus, "Configure the per-user login session bus");
+    CLI11_PARSE(app, argc, argv);
+    try
+    {
+        //create Dbus connection to the session or system bus
         const char *serviceName = "xyz.openbmc_project.Inventory.Manager";
-        //auto connection = sdbus::createSessionBusConnection(sdbus::ServiceName{serviceName});
         /*
         To connect system bus, add /etc/dbus-1/system.d/xyz.openbmc_project.Inventory.Manager.conf
         <!DOCTYPE busconfig PUBLIC
@@ -460,7 +480,11 @@ int main(int argc, char* argv[])
             </policy>
         </busconfig>
         */
-        auto connection = sdbus::createSystemBusConnection(sdbus::ServiceName{serviceName});
+        std::unique_ptr<sdbus::IConnection> connection;
+        if (sessionBus)
+            connection = sdbus::createSessionBusConnection(sdbus::ServiceName{serviceName});
+        else
+            connection = sdbus::createSystemBusConnection(sdbus::ServiceName{serviceName});
 
         //create inventory object
         const char *objPath = "/xyz/openbmc_project/inventory";
@@ -474,13 +498,13 @@ int main(int argc, char* argv[])
         };
 
         inventory->addVTable(sdbus::registerMethod("Notify").implementedAs(std::move(notify))).forInterface("xyz.openbmc_project.Inventory.Manager");
-        
+
         manager.restore();
-        
-#if 0 
+
+#if 0
         // system object
         auto system = sdbus::createObject(*connection, sdbus::ObjectPath{"/xyz/openbmc_project/inventory/system"});
-    
+
         // addVtable requires sdbus-c++ version > v2.0.0
         system->addVTable().forInterface(sdbus::InterfaceName{"xyz.openbmc_project.Inventory.Item.System"});
         //system->setInterfaceFlags("xyz.openbmc_project.Inventory.Item.System", sdbus::Flags());
@@ -495,7 +519,7 @@ int main(int argc, char* argv[])
                 //system->emitPropertiesChangedSignal("xyz.openbmc_project.Inventory.Decorator.AssetTag", {"AssetTag"});
                 system->emitPropertiesChangedSignal(sdbus::InterfaceName{"xyz.openbmc_project.Inventory.Decorator.AssetTag"}, {sdbus::PropertyName{"AssetTag"}});
             })).forInterface("xyz.openbmc_project.Inventory.Decorator.AssetTag");
-        
+
         system->addVTable(sdbus::registerProperty("PrettyName")
             .withGetter([&]() {
                 try {
@@ -525,6 +549,17 @@ int main(int argc, char* argv[])
 
         std::cout << "Test invokeMethod getPropertyByName(\"PrettyName\") for /system : " << std::get<std::string>(prettyName) << std::endl;
 */
+/*
+	auto prettyName = manager.invokeMethod<
+		xyz::openbmc_project::Inventory::server::Item,
+		std::string(xyz::openbmc_project::Inventory::server::Item::*)()const
+	>("/system", "xyz.openbmc_project.Inventory.Item",
+	static_cast<std::string(xyz::openbmc_project::Inventory::server::Item::*)()const>(&xyz::openbmc_project::Inventory::server::Item::prettyName));
+	std::cout << "-- Test: " << prettyName << std::endl;
+*/
+
+        manager.run();
+
         std::cout << "Starting Event Loop...\n";
         connection->enterEventLoop();
 

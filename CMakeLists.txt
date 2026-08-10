@@ -10,8 +10,9 @@ if (NOT BUILD_YOCTO)
     include(ExternalProject)
     include("cmake/dependencies.cmake")
     FetchContent_MakeAvailable(sdbus-c++)
+    add_definitions(-DPIM_PERSIST_PATH="./phosphor-inventory-manager")
 else ()
-    add_definitions(-DPIM_PERSIST_PATH="\\\"/var/lib/phosphor-inventory-manager\\\"")
+    add_definitions(-DPIM_PERSIST_PATH="/var/lib/phosphor-inventory-manager")
 endif()
 
 project(dbus-inventory LANGUAGES CXX)
@@ -20,6 +21,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF) # Disables GNU extensions
 find_package(sdbus-c++ 2.0 REQUIRED)
 find_package(cereal REQUIRED)
+find_package(CLI11 REQUIRED)
 
 set(INTERFACE_LIST
     xyz.openbmc_project.Common.UUID

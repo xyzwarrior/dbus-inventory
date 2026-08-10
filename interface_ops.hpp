@@ -23,7 +23,7 @@ struct HasProperties
 template <typename T, typename Enable = void>
 struct MakeInterface
 {
-    static std::any op(sdbus::IObject* obj, const Interface&)
+    static std::any op(sdbus::IObject* obj, const Interface&, bool)
     {
         return std::any(std::make_shared<T>(obj));
     }
@@ -32,7 +32,7 @@ struct MakeInterface
 template <typename T>
 struct MakeInterface<T, std::enable_if_t<HasProperties<T>::value>>
 {
-    static std::any op(sdbus::IObject* obj, const Interface& props)
+    static std::any op(sdbus::IObject* obj, const Interface& props, bool deferSignal)
     {
         using InterfaceVariant =
             std::map<std::string, typename T::PropertiesVariant>;
@@ -44,14 +44,14 @@ struct MakeInterface<T, std::enable_if_t<HasProperties<T>::value>>
                       convertVariant<typename T::PropertiesVariant>(p.second));
         }
 
-        return std::any(std::make_shared<T>(obj, v));
+        return std::any(std::make_shared<T>(obj, v, deferSignal));
     }
 };
 
 template <typename T, typename Enable = void>
 struct AssignInterface
 {
-    static void op(const Interface&, std::any&)
+    static void op(const Interface&, std::any&, bool)
     {
     }
 };
@@ -59,14 +59,15 @@ struct AssignInterface
 template <typename T>
 struct AssignInterface<T, std::enable_if_t<HasProperties<T>::value>>
 {
-    static void op(const Interface& props, std::any& holder)
+    static void op(const Interface& props, std::any& holder, bool deferSignal)
     {
         auto& iface = *std::any_cast<std::shared_ptr<T>&>(holder);
         for (const auto& p : props)
         {
             iface.setPropertyByName(
                 p.first,
-                convertVariant<typename T::PropertiesVariant>(p.second));
+                convertVariant<typename T::PropertiesVariant>(p.second),
+                deferSignal);
         }
     }
 };
