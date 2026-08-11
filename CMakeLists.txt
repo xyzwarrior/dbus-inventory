@@ -57,7 +57,7 @@ foreach(IFACE IN LISTS INTERFACE_LIST)
     add_custom_command(
         COMMAND ${CMAKE_COMMAND} -E make_directory "${INTERFACES_DIR}"
         OUTPUT "${INTERFACES_DIR}/${IFACE}.cpp"
-        COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/tools/sdbus++ 
+        COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/tools/sdbus++
             -r ${CMAKE_CURRENT_SOURCE_DIR}/tools/yaml
             -t ${CMAKE_CURRENT_SOURCE_DIR}/tools/sdbusplus/templates interface server-cpp
             ${IFACE} > "${INTERFACES_DIR}/${IFACE}.cpp"
@@ -73,15 +73,16 @@ add_custom_command(
     COMMENT "Generating maker cpp"
     VERBATIM
 )
-add_executable(dbus-inventory 
+add_executable(dbus-inventory
     server.cpp
     ${INTERFACES_SRC}
     ${INTERFACES_DIR}/maker.cpp
 )
 target_include_directories(dbus-inventory PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${INTERFACES_DIR})
+# using sdbus-c++ from apt package with namespace SDBusCpp::
 #target_link_libraries(dbus-inventory PRIVATE SDBusCpp::sdbus-c++)
 target_link_libraries(dbus-inventory PRIVATE sdbus-c++)
 target_compile_features(dbus-inventory PRIVATE cxx_std_17)
-target_compile_options(dbus-inventory PRIVATE -Wall -DCMAKE_UNITY_BUILD=ON -O2 -flto=auto)
+target_compile_options(dbus-inventory PRIVATE -Wall -O3 -flto=auto)
 
 install(TARGETS dbus-inventory DESTINATION ${CMAKE_INSTALL_BINDIR})

@@ -8,7 +8,11 @@
 #include <filesystem>
 #include <fstream>
 //#include <nlohmann/json.hpp>
+#ifdef USE_CLI11
 #include <CLI/CLI.hpp>
+#else
+#include <getopt.h> // Required for getopt_long
+#endif
 
 // supported interfaces
 /*
@@ -463,14 +467,51 @@ void Manager::notify(std::map<sdbus::ObjectPath, Object> objs)
     updateObjects(objs);
 }
 
+void usage() {
+    std::cout << "Inventory Manager\n";
+    std::cout << "Usage: dbus-inventory [OPTIONS]\n\n";
+    std::cout << "Options:\n";
+    std::cout << "  -h,--help                   Print this help message and exit\n";
+    std::cout << "  -s,--session                Configure the per-user login session bus\n";
+}
+
 using namespace std::literals::string_literals;
+
 int main(int argc, char* argv[])
 {
-    CLI::App app{"OpenBmc Inventory Manager"};
     bool sessionBus = false;
-    std::cout << "Starting Inventory Manager...\n";
+#ifdef USE_CLI11
+    CLI::App app{"Inventory Manager"};
     app.add_flag("-s,--session", sessionBus, "Configure the per-user login session bus");
     CLI11_PARSE(app, argc, argv);
+#else
+    int opt;
+    const char* const short_options = "hs";
+    const struct option long_options[] = {
+        {"help",    no_argument, nullptr, 'h'},
+        {"session", no_argument, nullptr, 's'},
+        {nullptr,   0,           nullptr, 0}
+    };
+    int option_index = 0;
+    // Loop through options until getopt returns -1
+    while ((opt = getopt_long(argc, argv, short_options, long_options, &option_index)) != -1) {
+        switch (opt) {
+            case 'h':
+                usage();
+                return 0;
+            case 's':
+                sessionBus = true;
+                break;
+            case '?':
+                usage();
+                return 1;
+            default:
+                break;
+        }
+    }
+#endif
+
+    std::cout << "Starting Inventory Manager...\n";
     try
     {
         //create Dbus connection to the session or system bus
@@ -504,7 +545,9 @@ int main(int argc, char* argv[])
             manager.notify(objs);
         };
 
-        inventory->addVTable(sdbus::registerMethod("Notify").implementedAs(std::move(notify))).forInterface("xyz.openbmc_project.Inventory.Manager");
+        inventory->addVTable(
+            sdbus::registerMethod("Notify").implementedAs(std::move(notify))
+        ).forInterface("xyz.openbmc_project.Inventory.Manager");
 
         manager.createObjects({
                                 {
@@ -547,7 +590,6 @@ int main(int argc, char* argv[])
                                         {
                                             "xyz.openbmc_project.Inventory.Item.System",
                                             {
-                                                
                                             }
                                         }
                                     }
@@ -593,13 +635,11 @@ int main(int argc, char* argv[])
                                         {
                                             "xyz.openbmc_project.Inventory.Item.Bmc",
                                             {
-                                                
                                             }
                                         },
                                         {
                                             "xyz.openbmc_project.Inventory.Item.Board",
                                             {
-                                                
                                             }
                                         },
                                         {
@@ -672,7 +712,7 @@ int main(int argc, char* argv[])
 	static_cast<std::string(xyz::openbmc_project::Inventory::server::Item::*)()const>(&xyz::openbmc_project::Inventory::server::Item::prettyName));
 	std::cout << "-- Test: " << prettyName << std::endl;
 */
-        
+
         std::cout << "Requesting Name: " << serviceName << " ...\n";
         connection->requestName(sdbus::ServiceName{serviceName});
 
