@@ -242,7 +242,7 @@ inline std::string convert_to_string<${cppNamespace()}::${e.name}>(
     % endfor
 } // namespace details
 } // namespace message
-
+#if 0
 #ifndef CLASS_VERSION
 //#define CLASS_VERSION 1
 #define CLASS_VERSION 2
@@ -306,3 +306,4 @@ void _load(Archive& a,
 }
 
 } // namespace cereal
+#endif

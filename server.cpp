@@ -127,22 +127,6 @@ void Manager::run() noexcept
     _status = ManagerStatus::RUNNING;
 }
 
-void Manager::destroyObjects(const std::vector<const char*>& paths)
-{
-    std::string p;
-
-    for (const auto& path : paths)
-    {
-        p.assign(_root);
-        p.append(path);
-        //_bus.emit_object_removed(p.c_str());
-
-        _objs[p]->emitInterfacesRemovedSignal();
-        _refs.erase(p);
-        _objs.erase(p);
-    }
-}
-
 void Manager::updateInterfaces(const sdbus::ObjectPath& path,
                                const Object& interfaces,
                                ObjectReferences::iterator pos, bool newObject,
@@ -184,7 +168,7 @@ void Manager::updateInterfaces(const sdbus::ObjectPath& path,
                     refaceit,
                     std::make_pair(ifaceit->first, ctor(_objs[path].get(), ifaceit->second, true)));
 
-                signals.push_back(sdbus::InterfaceName(ifaceit->first));
+                signals.push_back(sdbus::InterfaceName{ifaceit->first});
             }
             else
             {
@@ -257,10 +241,10 @@ void Manager::updateObjects(
             refit = _refs.insert(
                 refit, std::make_pair(absPath, decltype(_refs)::mapped_type()));
             newObj = true;
-            _objs[absPath] = sdbus::createObject(*_connection, sdbus::ObjectPath(absPath));
+            _objs[absPath] = sdbus::createObject(*_connection, sdbus::ObjectPath{absPath});
         }
 
-        updateInterfaces(sdbus::ObjectPath(absPath), objit->second, refit, newObj,
+        updateInterfaces(sdbus::ObjectPath{absPath}, objit->second, refit, newObj,
                          restoreFromCache);
 #ifdef CREATE_ASSOCIATIONS
         if (newObj)
@@ -270,6 +254,28 @@ void Manager::updateObjects(
 #endif
         ++objit;
     }
+}
+
+void Manager::destroyObjects(const std::vector<const char*>& paths)
+{
+    std::string p;
+
+    for (const auto& path : paths)
+    {
+        p.assign(_root);
+        p.append(path);
+        //_bus.emit_object_removed(p.c_str());
+
+        _objs[p]->emitInterfacesRemovedSignal();
+        _refs.erase(p);
+        _objs.erase(p);
+    }
+}
+
+void Manager::createObjects(
+    const std::map<sdbus::ObjectPath, Object>& objs)
+{
+    updateObjects(objs);
 }
 
 std::any& Manager::getInterfaceHolder(const char* path, const char* interface)
@@ -314,7 +320,7 @@ void Manager::restore()
             auto ifaceName = path.filename().string();
             auto objPath = path.parent_path().string();
             objPath.erase(0, remove.length());
-            auto objit = objects.find(sdbus::ObjectPath(objPath));
+            auto objit = objects.find(sdbus::ObjectPath{objPath});
             Interface propertyMap{};
             if (objects.end() != objit)
             {
@@ -361,7 +367,7 @@ void Manager::restore()
                     refit, std::make_pair(absPath, decltype(_refs)::mapped_type()));
                 //newObj = true;
                 std::cout << "createObject: " << absPath << std::endl;
-                _objs[absPath] = sdbus::createObject(*_connection, sdbus::ObjectPath(absPath));
+                _objs[absPath] = sdbus::createObject(*_connection, sdbus::ObjectPath{absPath});
             }
 
             printf(" Object Path: %s\n", absPath.c_str());
@@ -457,6 +463,7 @@ void Manager::notify(std::map<sdbus::ObjectPath, Object> objs)
     updateObjects(objs);
 }
 
+using namespace std::literals::string_literals;
 int main(int argc, char* argv[])
 {
     CLI::App app{"OpenBmc Inventory Manager"};
@@ -499,6 +506,114 @@ int main(int argc, char* argv[])
 
         inventory->addVTable(sdbus::registerMethod("Notify").implementedAs(std::move(notify))).forInterface("xyz.openbmc_project.Inventory.Manager");
 
+        manager.createObjects({
+                                {
+                                    sdbus::ObjectPath{"/system"},
+                                    {
+                                        {
+                                            "xyz.openbmc_project.Inventory.Decorator.AssetTag",
+                                            {
+                                                {
+                                                    "AssetTag",
+                                                    ""s
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "xyz.openbmc_project.Inventory.Decorator.Asset",
+                                            {
+                                                {
+                                                    "PartNumber",
+                                                    ""s
+                                                },
+                                                {
+                                                    "SerialNumber",
+                                                    ""s
+                                                },
+                                                {
+                                                    "Manufacturer",
+                                                    "Premio"s
+                                                },
+                                                {
+                                                    "BuildDate",
+                                                    ""s
+                                                },
+                                                {
+                                                    "Model",
+                                                    ""s
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "xyz.openbmc_project.Inventory.Item.System",
+                                            {
+                                                
+                                            }
+                                        }
+                                    }
+                                },
+                                {
+                                    sdbus::ObjectPath{"/system/chassis"},
+                                    {
+                                        {
+                                            "xyz.openbmc_project.Inventory.Item.Chassis",
+                                            {
+                                                {
+                                                    "Type",
+                                                    ""s
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                {
+                                    sdbus::ObjectPath{"/system/chassis/oob"},
+                                    {
+                                        {
+                                            "xyz.openbmc_project.Inventory.Decorator.Asset",
+                                            {
+                                                {
+                                                    "BuildDate",
+                                                    ""s
+                                                },
+                                                {
+                                                    "SerialNumber",
+                                                    ""s
+                                                },
+                                                {
+                                                    "PartNumber",
+                                                    ""s
+                                                },
+                                                {
+                                                    "Manufacturer",
+                                                    "Premio"s
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "xyz.openbmc_project.Inventory.Item.Bmc",
+                                            {
+                                                
+                                            }
+                                        },
+                                        {
+                                            "xyz.openbmc_project.Inventory.Item.Board",
+                                            {
+                                                
+                                            }
+                                        },
+                                        {
+                                            "xyz.openbmc_project.Inventory.Decorator.Revision",
+                                            {
+                                                {
+                                                    "Version",
+                                                    ""s
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            });
         manager.restore();
 
 #if 0
@@ -557,10 +672,11 @@ int main(int argc, char* argv[])
 	static_cast<std::string(xyz::openbmc_project::Inventory::server::Item::*)()const>(&xyz::openbmc_project::Inventory::server::Item::prettyName));
 	std::cout << "-- Test: " << prettyName << std::endl;
 */
+        
+        std::cout << "Requesting Name: " << serviceName << " ...\n";
+        connection->requestName(sdbus::ServiceName{serviceName});
 
         manager.run();
-        std::cout << "Requesting Name: " << serviceName << " ...\n";
-        connection->requestName(sdbus::ServiceName{serviceName});    
         std::cout << "Starting Event Loop...\n";
         connection->enterEventLoop();
 

@@ -28,6 +28,7 @@ namespace server
 ${classname}::${classname}(sdbus::IObject* obj)
         : _obj(obj)
 {
+    obj->addVTable().forInterface(interface);
 }
 
     % if interface.properties:
