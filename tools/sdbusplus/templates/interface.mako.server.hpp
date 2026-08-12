@@ -64,7 +64,7 @@ class ${classname}
          *  @param[in] bus - Bus to attach to.
          *  @param[in] path - Path to attach at.
          */
-        ${classname}(sdbus::IObject* obj);
+        ${classname}(sdbus::IObject& obj);
 
     % for e in interface.enums:
         enum class ${e.name}
@@ -86,7 +86,7 @@ class ${classname}
          *  @param[in] path - Path to attach at.
          *  @param[in] vals - Map of property name to value for initialization.
          */
-        ${classname}(sdbus::IObject* obj,
+        ${classname}(sdbus::IObject& obj,
                      const std::map<std::string, PropertiesVariant>& vals,
                      bool skipSignal = false);
 
@@ -182,7 +182,7 @@ ${p.camelCase}(${p.cppTypeParam(interface.name)} value);
         }
 
     private:
-        sdbus::IObject* _obj;
+        sdbus::IObject& _obj;
     % for m in interface.methods:
 ${ m.cpp_prototype(loader, interface=interface, ptype='callback-header') }
     % endfor

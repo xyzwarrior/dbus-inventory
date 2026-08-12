@@ -25,20 +25,20 @@ namespace ${s}
 namespace server
 {
 
-${classname}::${classname}(sdbus::IObject* obj)
+${classname}::${classname}(sdbus::IObject& obj)
         : _obj(obj)
 {
-    obj->addVTable().forInterface(interface);
+    _obj.addVTable().forInterface(interface);
 }
 
     % if interface.properties:
-${classname}::${classname}(sdbus::IObject* obj,
+${classname}::${classname}(sdbus::IObject& obj,
                            const std::map<std::string, PropertiesVariant>& vals,
                            bool skipSignal)
         : _obj(obj)
 {
     % for p in interface.properties:
-    obj->addVTable(
+    _obj.addVTable(
         sdbus::registerProperty("${p.name}")
             .withGetter([&]() {
                 return ${p.camelCase}();

@@ -37,7 +37,7 @@ auto ${classname}::${property.camelCase}(${property.cppTypeParam(interface.name)
         if (!skipSignal)
         {
             //_${interface_instance()}.property_changed("${property.name}");
-            _obj->emitPropertiesChangedSignal(interface, {sdbus::PropertyName("${property.name}")});
+            _obj.emitPropertiesChangedSignal(interface, {sdbus::PropertyName{"${property.name}"}});
         }
     }
 

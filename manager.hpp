@@ -18,7 +18,7 @@ public:
     Manager& operator=(Manager&&) = default;
     ~Manager() = default;
 
-    Manager(sdbus::IConnection* connection);
+    Manager(sdbus::IConnection& connection);
 
     /** @brief Start processing DBus messages. */
     void run() noexcept;
@@ -129,7 +129,7 @@ private:
     ObjectReferences _refs;
     /** @brief A container of pimgen generated factory methods.  */
     static const Makers _makers;
-    sdbus::IConnection* _connection;
+    sdbus::IConnection& _connection;
     std::map<std::string, std::unique_ptr<sdbus::IObject>> _objs;
     const char* _root = "/xyz/openbmc_project/inventory";
     /** @brief Manager status indicator */
