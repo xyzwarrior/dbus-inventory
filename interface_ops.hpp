@@ -1,6 +1,8 @@
 #include "types.hpp"
 #include "utils.hpp"
 
+// The Legacy Way: C++11/C++14 SFINAE (Overload Resolution)
+/*
 template <typename T>
 struct HasProperties
 {
@@ -19,6 +21,23 @@ struct HasProperties
   public:
     static constexpr auto value = sizeof(test<T>(0)) == sizeof(yes);
 };
+*/
+
+// The Standard Way: C++17 std::void_t
+// Primary template: defaults to false
+template <typename T, typename = void>
+struct HasProperties : std::false_type {};
+
+// Specialization: if T::type is valid, std::void_t turns it into void, matching this rule
+template <typename T>
+struct HasProperties<T, std::void_t<typename T::PropertiesVariant>> : std::true_type {};
+
+// The Modern Way: C++20 Concepts
+// Define a concept to check if T has an internal type named 'type'
+//template <typename T>
+//concept has_typedef_type = requires {
+//    typename T::type; // Probes for the existence of T::type
+//};
 
 template <typename T, typename Enable = void>
 struct MakeInterface
